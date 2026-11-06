@@ -1,7 +1,7 @@
 {
   "name": "pr-review-guide",
   "description": "Builds a section-by-section self-review page for a pull request or a stack of them, and acts on the notes you leave on it",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "Angus Comrie"
   },

@@ -91,6 +91,8 @@ GH_ISSUE_URL = re.compile(r"https://github\.com/([\w.-]+/[\w.-]+)/issues/(\d+)")
 TRACKER_URL = re.compile(r"https?://(?:linear\.app/[\w-]+/issue|[\w.-]+/browse)/([A-Z][A-Z0-9]*-\d+)[^\s)>\]]*")
 KEY = re.compile(r"\b([A-Z][A-Z0-9]{1,9}-\d{1,6})\b")
 BRANCH_KEY = re.compile(r"^([a-z][a-z0-9]{1,9}-\d{1,6})(?=$|[-_])", re.I)
+# A key leading the title, in either case, as `bac-1555: adds the thing`.
+TITLE_KEY = re.compile(r"^\W*([a-z][a-z0-9]{1,9}-\d{1,6})\b", re.I)
 # The words GitHub and Linear read before an issue: the first set closes it on merge, Linear's extra pair
 # closes only a Linear or Jira issue, the third only links, and skip or ignore stops a link being made.
 CLOSING = r"close[sd]?|closing|fix(?:e[sd]|ing)?|resolve[sd]?|resolving"
@@ -159,7 +161,7 @@ def linked_issues(repo, name, pr, title, body, commits, branch):
     for m in TRACKER_URL.finditer(text):
         add("key", m.group(1), m.group(0), False)
     tail = branch.rsplit("/", 1)[-1]
-    for k in KEY.findall(title) + [m.upper() for m in BRANCH_KEY.findall(tail)]:
+    for k in KEY.findall(title) + [m.upper() for m in TITLE_KEY.findall(title) + BRANCH_KEY.findall(tail)]:
         add("key", k, None, True)
     for k in KEY.findall("\n".join(c.split("\n", 1)[0] for c in commits)):
         add("key", k, None, False)
@@ -1241,6 +1243,8 @@ def self_test():
     assert [x["ref"] for x in got] == ["#7", "#9", "other/repo#3", "ENG-5", "PROJ-12"], got
     assert got[0]["url"] == "https://github.com/o/r/issues/7" and got[3]["url"].startswith("https://linear.app/") and not text
     assert [x["ref"] for x in linked_issues("/nonexistent", "o/r", None, "release-2 work", "", [], "release-2")[0]] == []
+    got = linked_issues("/nonexistent", "o/r", None, "bac-1555: client settings API", "", [], "bt/da-6361-client-settings")[0]
+    assert [(x["ref"], x["closes"]) for x in got] == [("BAC-1555", True), ("DA-6361", True)], got
     assert same_owner("O/other", "o/r") and not same_owner("other/repo", "o/r") and not same_owner("", "o/r")
     got = {x["ref"]: x["closes"] for x in linked_issues(
         "/nonexistent", "o/r", None, "adds the thing",

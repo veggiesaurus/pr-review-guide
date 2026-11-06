@@ -865,7 +865,9 @@ tr.xref code { color: var(--foreground); }
       const opts = [`<option value="">All changes</option>`];
       const L = M.lastPass;
       if (L) opts.push(`<option value="fresh">New since ${esc(L.headSha.slice(0, 7))}${L.at ? `, ${ago(L.at)}` : ""} (${L.fresh} hunk${L.fresh === 1 ? "" : "s"})</option>`);
-      if (M.commitMap) (M.commits || []).forEach((c, i) => opts.push(`<option value="c${i}">${esc(c.split("\n")[0].slice(0, 90))}</option>`));
+      // Only commits that own a hunk: a merge from the base branch usually owns none.
+      const owning = new Set(D.files.flatMap(f => f.hunks.flatMap(h => h.commits || [])));
+      if (M.commitMap) (M.commits || []).forEach((c, i) => { if (owning.has(i)) opts.push(`<option value="c${i}">${esc(c.split("\n")[0].slice(0, 90))}</option>`); });
       const meta = $("meta");
       meta.innerHTML = `<span>${esc(M.author)}</span>`
         + `<span class="loc-wrap"><button class="loc" type="button" aria-expanded="false"><span class="num">${counts(impl.add, impl.del)}</span>${differs ? `<span class="star">(*)</span>` : ""}</button>`
@@ -1081,19 +1083,19 @@ tr.xref code { color: var(--foreground); }
         parts.push(`<details open><summary>CI annotations</summary><ul>${rows.join("")}</ul>`
           + (rest.length ? `<p class="why-note">${rest.length} on lines this PR doesn't change${rest.length > 12 ? ", the first 12 here" : ""}:</p><ul>${elsewhere.join("")}</ul>` : "") + `</details>`);
       }
-      // Claim by claim: what the description and the linked issue say, against the hunks that do it or the reason they don't.
+      // Only where the description or the linked issue and the diff disagree; the claims the diff does carry out
+      // come last, collapsed.
       const note = x => x.stack ? ` <span class="stacknote">${esc(x.stack)}</span>` : "";
-      const done = from => ((desc && desc.checklist) || []).filter(x => x.from === from)
-        .map(x => `<li><b>In the diff:</b> <q>${esc(x.claim)}</q> ${hunkLinks(x.hunks)}${note(x)}</li>`);
-      if (desc && (done("description").length || (desc.unsupported || []).length || (desc.missing || []).length)) {
+      if (desc && ((desc.unsupported || []).length || (desc.missing || []).length)) {
         const un = (desc.unsupported || []).map(x => `<li><b>Not in the diff:</b> <q>${esc(x.claim)}</q> <span class="why-note">${esc(x.why || "")}</span>${note(x)}</li>`);
         const mi = (desc.missing || []).map(x => `<li><b>Left out:</b> ${esc(x.what)} ${hunkLinks(x.hunks)}${note(x)}</li>`);
-        parts.push(`<details open><summary>Description vs diff</summary><ul>${un.concat(mi, done("description")).join("")}</ul></details>`);
+        parts.push(`<details open><summary>Description vs diff</summary><ul>${un.concat(mi).join("")}</ul></details>`);
       }
-      if (desc && (done("issue").length || (desc.issue || []).length)) {
-        const asks = (desc.issue || []).map(x => `<li><b>Not in the diff:</b> ${esc(x.ask)} <span class="why-note">${esc(x.why || "")}</span>${note(x)}</li>`);
-        parts.push(`<details open><summary>Linked issue vs diff</summary><ul>${asks.concat(done("issue")).join("")}</ul></details>`);
+      if (desc && (desc.issue || []).length) {
+        const asks = desc.issue.map(x => `<li><b>Not in the diff:</b> ${esc(x.ask)} <span class="why-note">${esc(x.why || "")}</span>${note(x)}</li>`);
+        parts.push(`<details open><summary>Linked issue vs diff</summary><ul>${asks.join("")}</ul></details>`);
       }
+      const carried = (desc && desc.checklist) || [];
       const risky = D.sections.map((sec, i) => [sec, i]).filter(([sec]) => sec.kind === "guide" && sec.risk);
       if (risky.length) parts.push(`<details open><summary>Needs a careful read</summary><ul>${risky.map(([sec, i]) => `<li><a href="#${P}s${i + 1}">§${pad2(i + 1)} ${esc(sec.title)}</a>: ${esc(sec.risk)}</li>`).join("")}</ul></details>`);
       if ((D.try || []).length) parts.push(`<details open><summary>Try by hand</summary><ul>${D.try.map(x => `<li>${prose(x)}</li>`).join("")}</ul></details>`);
@@ -1101,6 +1103,8 @@ tr.xref code { color: var(--foreground); }
         const prs = split.prs.map((pr, k) => `<li>PR ${k + 1}: ${pr.map(n => `<a href="#${P}s${n}">§${pad2(n)} ${esc(D.sections[n - 1].title)}</a>`).join(", ")}</li>`);
         parts.push(`<details open><summary>Could be ${split.prs.length} PRs</summary>${split.note ? `<p class="why-note">${esc(split.note)}</p>` : ""}<ul>${prs.join("")}</ul></details>`);
       }
+      if (carried.length) parts.push(`<details><summary>What the diff carries out (${carried.length})</summary><ul>${carried.map(x =>
+        `<li>${x.from === "issue" ? "<b>Issue:</b> " : ""}<q>${esc(x.claim)}</q> ${hunkLinks(x.hunks)}${note(x)}</li>`).join("")}</ul></details>`);
       const panel = $("ready");
       panel.innerHTML = parts.join("");
       panel.querySelectorAll("a[data-hunk]").forEach(a => a.onclick = e => { e.preventDefault(); a.dataset.row ? goToRow(a.dataset.row, a.dataset.hunk) : goTo(a.dataset.hunk); });

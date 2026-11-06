@@ -27,4 +27,4 @@ Ask for a guide of any PR in a stack and you get one page for every layer. It sa
 - The Artifact tool in Claude Code to publish the page, and its `comments` capability to send notes back to the session. Without it, Claude opens the page from disk instead: notes work the same, and Copy notes takes them back to the session.
 - Python 3.9 or later, standard library only.
 
-`SKILL.md` has the details: which models do what, what counts as formatting noise, what gets flagged and how notes come back.
+`SKILL.md` has how it runs and how notes come back; `reference/page.md`, `reference/collect.md` and `reference/design-notes.md` beside it have what the page shows, what counts as noise, what gets flagged, and why the models and steps are what they are.

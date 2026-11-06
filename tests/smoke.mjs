@@ -28,11 +28,13 @@ check(await count("tr.mv") === 2, "a moved block shows where it went and where i
 check(await count("td.code.moved") === 6, "the moved copy is marked line by line");
 check(await count("tr.ann") === 1, "the CI annotation on a changed line sits under it");
 const ready = await page.locator(".ready").innerText();
-for (const want of ["Try by hand", "In the diff:", "Not in the diff:", "CI annotations", "1 on lines this PR doesn't change", "new since"])
+for (const want of ["Try by hand", "What the diff carries out (1)", "Not in the diff:", "CI annotations", "1 on lines this PR doesn't change", "new since"])
   check(ready.includes(want), `ready panel has "${want}"`);
+check(!(await page.locator(".ready details", { hasText: "Description vs diff" }).innerText()).includes("served under /blog"),
+  "the description section lists only where it and the diff disagree");
 
 const options = await page.locator(".pick option").allInnerTexts();
-check(options.length === 6 && options[1].startsWith("New since"), "the filter lists the last pass and four commits");
+check(options.length === 6 && options[1].startsWith("New since"), "the filter lists the last pass and the four commits that own hunks");
 await page.selectOption(".pick", "fresh");
 check(await visible(".card") === 1 && await visible(".sec") === 1, "since the last pass, only the file that changed shows, in its section");
 await page.selectOption(".pick", "c1");
